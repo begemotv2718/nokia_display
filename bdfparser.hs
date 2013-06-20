@@ -163,6 +163,7 @@ main = do
        unless (length args == 2) $ error "Usage: bdfparse <file> <charcode>" 
        filestr <- readFile $ head args
        let pres = parse pBDF "error parsing" filestr
-       printlookup (read $ args!!1)  pres 
-       printCForm  (read $ args!!1)  pres
+       let glyphlist = read ("["++ args!!1 ++ "]")::[Int]
+       mapM_ (`printlookup` pres) glyphlist 
+       mapM_ (`printCForm` pres)  glyphlist
           
