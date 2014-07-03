@@ -1,8 +1,11 @@
-#define F_CPU 1000000UL                                    /* Clock Frequency = 1Mhz */
+#define F_CPU 12000000UL                                    /* Clock Frequency = 1Mhz */
 
 #include <inttypes.h>
+#include <string.h>
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/pgmspace.h>
+
 #define DISP_SCE BIT(2)
 #define DISP_SDC BIT(3)
 #define DISP_DIN BIT(4)
@@ -48,9 +51,26 @@
 #define BIT(x) (0x01 << (x))
 #define LONGBIT(x) ((unsigned long)0x00000001 << (x))
 
+
 uint8_t data[DISP_XSIZE*DISP_YSIZE];
 
+PROGMEM const char font[] = {
+0x00,0x3c,0x42,0x3c,0x00,
+0x00,0x44,0x7e,0x40,0x00,
+0x64,0x52,0x52,0x4c,0x00,
+0x22,0x4a,0x4e,0x32,0x00,
+0x18,0x14,0x7e,0x10,0x00,
+0x2e,0x4a,0x4a,0x32,0x00,
+0x3c,0x4a,0x4a,0x30,0x00,
+0x02,0x62,0x1a,0x06,0x00,
+0x34,0x4a,0x4a,0x34,0x00,
+0x0c,0x52,0x52,0x3c,0x00,
+0x00,0x6c,0x6c,0x00,0x00
+};
 
+#define FONT_CHARWIDTH 5
+#define FONT_STARTCHAR 0x30
+#define FONT_ENDCHAR 0x3A
 
 void send_byte(unsigned char db, unsigned char dc){
   unsigned char bit;
@@ -70,13 +90,16 @@ void send_byte(unsigned char db, unsigned char dc){
 } 
 
   
-void init_display(){
+void init_display(uint8_t contrast){
   BIT_CLR(DISP_PORT,DISP_RESET);
   _delay_ms(500);
   BIT_SET(DISP_PORT,DISP_RESET);
   _delay_ms(5);
+  if(contrast>0x7f){
+    contrast=0x7f;
+  }
   send_byte(DISP_FUNCTIONSET | DISP_EXTENDEDINSTRUCTION,DISP_COMMAND);
-  send_byte(DISP_SETVOP +32,DISP_COMMAND);
+  send_byte(DISP_SETVOP | contrast,DISP_COMMAND);
   send_byte(DISP_SETBIAS | 0x04,DISP_COMMAND);
   send_byte(DISP_FUNCTIONSET,DISP_COMMAND);
   send_byte(DISP_DISPLAYCONTROL | DISP_DISPLAYNORMAL,DISP_COMMAND);
@@ -98,8 +121,24 @@ void upload_box(uint8_t x, uint8_t y, uint8_t dx, uint8_t dy){
     }
   }
 }  
-  
-  
+
+void putsxy(uint8_t x, uint8_t y, char *msg){
+  uint8_t curx;
+  curx=x;
+  while(*msg){
+    if(*msg>=FONT_STARTCHAR && *msg<=FONT_ENDCHAR){
+      for(uint8_t i=0; i< FONT_CHARWIDTH; i++){
+        data[y*DISP_XSIZE+curx]=pgm_read_byte(&font[(*msg-FONT_STARTCHAR)*FONT_CHARWIDTH+i]);
+        curx++;
+        if(curx>DISP_XSIZE) break;
+      }
+      if(curx>DISP_XSIZE) break;
+    }
+    msg++;
+  }
+  upload_box(x,y,curx-x+1,1);
+}
+/*  
 int read_data(unsigned char* result){
   unsigned char i;
   DDRB=0b00000001;
@@ -139,26 +178,24 @@ int read_data(unsigned char* result){
   }
   return 0;
 }
-
+*/
        
     
-int main(){                         // The main function
+int main(void){                         // The main function
 
   DDRD=0b11111111;
   DDRC=0b00111110;
   DDRB=0b00000001;
   PORTB=1;
 
-  unsigned char data[5];
-  int res;
 
 
 
-
-
-  init_display();
+  init_display(15);
   while (1) {                        // Set up an infinite loop
-
+  send_byte(DISP_SETXADDR |0,DISP_COMMAND);
+  send_byte(DISP_SETYADDR |0,DISP_COMMAND);
+  /* 
   send_byte(0x1F,DISP_DATA);
   send_byte(0x05,DISP_DATA);
   send_byte(0x07,DISP_DATA);
@@ -166,7 +203,16 @@ int main(){                         // The main function
   send_byte(0x1F,DISP_DATA);
   send_byte(0x04,DISP_DATA);
   send_byte(0x1F,DISP_DATA);
-  
+  char *msg="0123";
+  while(*msg){
+    for(uint8_t i=0; i<FONT_CHARWIDTH; i++){
+      send_byte(pgm_read_byte(&font[(*msg-FONT_STARTCHAR)*FONT_CHARWIDTH + i]),DISP_DATA);
+    }
+    msg++;
+  }
+  */
+
+  putsxy(5,2, "12:34");  
   BIT_SET(DISP_PORT,DISP_SCE);
   _delay_ms(3000);
 
