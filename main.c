@@ -137,6 +137,7 @@ void putsxy(uint8_t x, uint8_t y, char *msg){
     msg++;
   }
   upload_box(x,y,curx-x+1,1);
+  BIT_SET(DISP_PORT,DISP_SCE);
 }
 /*  
 int read_data(unsigned char* result){
@@ -193,9 +194,9 @@ int main(void){                         // The main function
 
   init_display(15);
   while (1) {                        // Set up an infinite loop
+    /*
   send_byte(DISP_SETXADDR |0,DISP_COMMAND);
   send_byte(DISP_SETYADDR |0,DISP_COMMAND);
-  /* 
   send_byte(0x1F,DISP_DATA);
   send_byte(0x05,DISP_DATA);
   send_byte(0x07,DISP_DATA);
@@ -212,8 +213,8 @@ int main(void){                         // The main function
   }
   */
 
+  putsxy(0,0, "100");
   putsxy(5,2, "12:34");  
-  BIT_SET(DISP_PORT,DISP_SCE);
   _delay_ms(3000);
 
   }
