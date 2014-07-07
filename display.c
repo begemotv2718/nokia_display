@@ -262,6 +262,14 @@ void init_display(uint8_t contrast){
   memset(data,0,sizeof(data));
 }
 
+void set_contrast(uint8_t vop, uint8_t bias){
+  if(vop > 0x7f) vop = 0x7f;
+  if(bias > 0x07) bias =0x04;
+  send_byte(DISP_FUNCTIONSET | DISP_EXTENDEDINSTRUCTION,DISP_COMMAND);
+  send_byte(DISP_SETVOP | vop,DISP_COMMAND);
+  send_byte(DISP_SETBIAS | bias,DISP_COMMAND);
+  send_byte(DISP_FUNCTIONSET,DISP_COMMAND);
+}
 
 
 void upload_box(uint8_t x, uint8_t y, uint8_t dx, uint8_t dy){ 

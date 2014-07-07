@@ -85,7 +85,8 @@ static void usage(char *myName)
 {
     fprintf(stderr, "usage:\n");
     fprintf(stderr, "  %s read\n", myName);
-    fprintf(stderr, "  %s write <x> <y> \"<string>\"\n", myName);
+    fprintf(stderr, "  %s display <x> <y> \"<string>\"\n", myName);
+    fprintf(stderr, "  %s contrast <vop> <bias>\n", myName);
 }
 
 int main(int argc, char **argv)
@@ -107,7 +108,7 @@ int         err;
         }else{
             hexdump(buffer + 1, sizeof(buffer) - 1);
         }
-    }else if(strcasecmp(argv[1], "write") == 0){
+    }else if(strcasecmp(argv[1], "display") == 0){
         int x,y;
         if(argc<5){
           usage(argv[0]);
@@ -122,10 +123,29 @@ int         err;
         }
        
         snprintf(&buffer[3], 17,argv[4]);
-        buffer[0]=0;
+        buffer[0]=REPORT_DISPLAY;
         buffer[1]=(char)x;
         buffer[2]=(char)y;
         if((err = usbhidSetReport(dev, buffer, 19)) != 0)   /* add a dummy report ID */
+            fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
+    }else if(strcasecmp(argv[1],"contrast") == 0){
+        int vop,bias;
+        if(argc<4){
+          usage(argv[0]);
+          exit(1);
+        }
+        memset(buffer, 0, sizeof(buffer));
+        vop=strtol(argv[2],NULL,10);
+        bias=strtol(argv[3],NULL,10);
+        if( vop<0 || vop>0x7f || bias<0 || bias> 7){
+           printf("values of vop or bias out of range\n"); 
+           exit(1);
+        }
+       
+        buffer[0]=REPORT_SET_CONTRAST;
+        buffer[1]=(char)vop;
+        buffer[2]=(char)bias;
+        if((err = usbhidSetReport(dev, buffer, 3)) != 0)   /* add a dummy report ID */
             fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
     }else{
         usage(argv[0]);

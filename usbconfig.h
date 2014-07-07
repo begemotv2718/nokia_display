@@ -378,4 +378,10 @@ section at the end of this file).
 /* #define USB_INTR_PENDING_BIT    INTF0 */
 /* #define USB_INTR_VECTOR         INT0_vect */
 
+/* Local defines */
+
+#define REPORT_DISPLAY 0
+#define REPORT_SET_CONTRAST 1
+
+
 #endif /* __usbconfig_h_included__ */

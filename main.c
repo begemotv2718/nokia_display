@@ -35,18 +35,20 @@ PROGMEM const char usbHidReportDescriptor[22] = {    /* USB report descriptor */
 /* The following variables store the status of the current data transfer */
 static uchar    currentAddress;
 static uchar    bytesRemaining;
+static uchar    reportId;
 static uchar    buffer[128];
 
-void do_display(void){
-  buffer[18]=0;
-  putsxy(buffer[0],buffer[1],&buffer[2]);
-  /*
-  for(uchar y=0;y<6;y++){
-     strncpy(buf2,&buffer[16*y],16);
-     buf2[16]=0;
-     putsxy(buf2,0,y);
+void handle_set_request(void){
+  if(reportId == REPORT_DISPLAY){
+    buffer[18]=0;
+    putsxy(buffer[0],buffer[1],&buffer[2]);
+    buffer[17]=0xfa;
+  }else if(reportId == REPORT_SET_CONTRAST){
+    uchar vop = buffer[0];
+    uchar bias = buffer[1];
+    set_contrast(vop,bias);
+
   }
-  */
 }
 /* ------------------------------------------------------------------------- */
 
@@ -65,13 +67,14 @@ uchar   usbFunctionRead(uchar *data, uchar len)
     return len;
 }
 
+
 /* usbFunctionWrite() is called when the host sends a chunk of data to the
  * device. For more information see the documentation in usbdrv/usbdrv.h.
  */
 uchar   usbFunctionWrite(uchar *data, uchar len)
 {
     if(bytesRemaining == 0){
-        do_display();
+        handle_set_request();
         return 1;               /* end of transfer */
     }
     if(len > bytesRemaining)
@@ -82,7 +85,7 @@ uchar   usbFunctionWrite(uchar *data, uchar len)
     currentAddress += len;
     bytesRemaining -= len;
     if(bytesRemaining == 0){
-        do_display();
+        handle_set_request();
         return 1;               /* end of transfer */
     }else{
       return 0;
@@ -97,7 +100,6 @@ uchar   usbFunctionWrite(uchar *data, uchar len)
 usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
 usbRequest_t    *rq = (void *)data;
-
     if((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_CLASS){    /* HID class request */
         if(rq->bRequest == USBRQ_HID_GET_REPORT){  /* wValue: ReportType (highbyte), ReportID (lowbyte) */
             /* since we have only one report type, we can ignore the report-ID */
@@ -106,7 +108,13 @@ usbRequest_t    *rq = (void *)data;
             return USB_NO_MSG;  /* use usbFunctionRead() to obtain data */
         }else if(rq->bRequest == USBRQ_HID_SET_REPORT){
             /* since we have only one report type, we can ignore the report-ID */
-            bytesRemaining = 18;
+            reportId=rq->wValue.bytes[0];
+            buffer[19]=reportId;
+            if(reportId==REPORT_DISPLAY){
+              bytesRemaining = 18;
+            }else{
+              bytesRemaining = 2;
+            }
             currentAddress = 0;
             return USB_NO_MSG;  /* use usbFunctionWrite() to receive data from host */
         }
