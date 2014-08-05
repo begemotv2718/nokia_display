@@ -43,6 +43,18 @@ pName = do
         spaces
         many $ noneOf "\n\r"
 
+pBBoxStr :: Parser (Int,Int,Int,Int)
+
+pBBoxStr = do
+        widthstr<- many digit
+        spaces
+        heightstr <- many digit
+        spaces
+        xoffstr <- many $ oneOf "0123456789-"
+        spaces
+        yoffstr <- many $ oneOf "0123456789-"
+        return (read widthstr,read heightstr,read xoffstr,read yoffstr)
+
 pGlyph :: Parser Glyph
 
 pGlyph = do
@@ -51,28 +63,33 @@ pGlyph = do
         encoding<- pEncoding                
         manyTill anyChar $ lookAhead $ try (string "BBX ")
         string "BBX "
-        widthstr<- many digit
-        spaces
-        heightstr <- many digit
-        spaces
-        xoffstr <- many $ oneOf "0123456789-"
-        spaces
-        yoffstr <- many $ oneOf "0123456789-"
+        (width,height,xoff,yoff)<-pBBoxStr
         manyTill anyChar $ lookAhead $ try (string "BITMAP")
         bmap<- pBitMap
         string "ENDCHAR"
         newline
-        return $ Glyph name encoding (read widthstr) (read heightstr) (read xoffstr) (read yoffstr) bmap
-       
-pBDF :: Parser [Glyph] 
+        return $ Glyph name encoding width height xoff yoff bmap
+
+
+pFontBBox:: Parser FontBBox
+
+pFontBBox = do
+       string "FONTBOUNDINGBOX "
+       (width,height,xoff,yoff)<-pBBoxStr
+       return $ FontBBox width height xoff yoff
+
+pBDF :: Parser (FontBBox,[Glyph]) 
 pBDF = do 
+       manyTill anyChar $ lookAhead $ try (string "FONTBOUNDINGBOX")
+       bb<-pFontBBox
        manyTill anyChar $ lookAhead $ try (string "ENDPROPERTIES")
        string "ENDPROPERTIES"
        newline
        string "CHARS"
        spaces
        manyTill digit newline
-       manyTill pGlyph $ lookAhead $ try (string "ENDFONT")
+       glyphs<-manyTill pGlyph $ lookAhead $ try (string "ENDFONT")
+       return (bb,glyphs)
 
 --- Glyph lookup functions ---
 extractEnc:: Glyph -> (Int, Glyph)
@@ -83,15 +100,15 @@ lookupGlyph :: Int->[Glyph]->Maybe Glyph
 lookupGlyph i t = lookup i $ mkLookupTable t
 
 ---Glyph display functions ---
-lookup2printable :: Int->[Glyph]->String
-lookup2printable i t = fromMaybe "not found" (liftM (glyph2str. padGlyph fbb) $ lookupGlyph i t) 
-lookup2CForm i t = fromMaybe "not found" (liftM (cForm. padGlyph fbb) $ lookupGlyph i t)
+lookup2printable :: Int->FontBBox->[Glyph]->String
+lookup2printable i bb t = fromMaybe "not found" (liftM (glyph2str. padGlyph bb) $ lookupGlyph i t) 
+lookup2CForm i bb t = fromMaybe "not found" (liftM (cForm. padGlyph bb) $ lookupGlyph i t)
 
-printlookup:: Int-> Either ParseError [Glyph] -> IO()
-printlookup i (Right a) = putStrLn $ lookup2printable i a
+printlookup:: Int-> Either ParseError (FontBBox,[Glyph]) -> IO()
+printlookup i (Right a) = putStrLn $ uncurry (lookup2printable i) a
 printlookup i (Left _) = putStrLn "Parse error"
-printCForm:: Int-> Either ParseError [Glyph] -> IO()
-printCForm i (Right a) = putStrLn $ lookup2CForm i a
+printCForm:: Int-> Either ParseError (FontBBox,[Glyph]) -> IO()
+printCForm i (Right a) = putStrLn $ uncurry (lookup2CForm i) a
 printCForm i (Left e) = putStrLn $ "Parse error:"++show e
 
 
